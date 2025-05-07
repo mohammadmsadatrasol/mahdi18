@@ -1,0 +1,471 @@
+<!DOCTYPE html>
+<html lang="fa" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>رصدگر لحظه‌ای ارزهای دیجیتال | Crypto Tracker</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        primary: '#6d28d9',
+                        secondary: '#8b5cf6',
+                        dark: '#1e1b4b',
+                        light: '#f5f3ff',
+                    },
+                    fontFamily: {
+                        'sans': ['Vazirmatn', 'Tahoma', 'sans-serif'],
+                    },
+                }
+            }
+        }
+    </script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Vazirmatn:wght@100;300;400;500;700;900&display=swap');
+        
+        body {
+            font-family: 'Vazirmatn', sans-serif;
+            background-color: #f5f3ff;
+        }
+        
+        .price-up {
+            color: #10b981;
+        }
+        
+        .price-down {
+            color: #ef4444;
+        }
+        
+        .loading-spinner {
+            border: 3px solid rgba(255, 255, 255, 0.3);
+            border-radius: 50%;
+            border-top: 3px solid #6d28d9;
+            width: 20px;
+            height: 20px;
+            animation: spin 1s linear infinite;
+        }
+        
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        
+        .gradient-bg {
+            background: linear-gradient(135deg, #6d28d9 0%, #8b5cf6 100%);
+        }
+        
+        .coin-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
+        }
+        
+        .refresh-btn:hover {
+            transform: rotate(180deg);
+        }
+    </style>
+</head>
+<body class="min-h-screen">
+    <!-- Header -->
+    <header class="gradient-bg text-white shadow-lg">
+        <div class="container mx-auto px-4 py-6">
+            <div class="flex justify-between items-center">
+                <div class="flex items-center space-x-2 space-x-reverse">
+                    <i class="fab fa-bitcoin text-3xl text-yellow-400"></i>
+                    <h1 class="text-2xl font-bold">رصدگر ارز دیجیتال</h1>
+                </div>
+                <div class="flex items-center space-x-4 space-x-reverse">
+                    <button id="refreshBtn" class="bg-white text-primary p-2 rounded-full shadow-md transition-all duration-300">
+                        <i class="fas fa-sync-alt"></i>
+                    </button>
+                    <div class="hidden md:flex items-center space-x-2 space-x-reverse">
+                        <span id="lastUpdate" class="text-sm">آخرین بروزرسانی: در حال دریافت...</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Content -->
+    <main class="container mx-auto px-4 py-8">
+        <!-- Market Overview -->
+        <div class="bg-white rounded-xl shadow-md p-6 mb-8">
+            <div class="flex justify-between items-center mb-6">
+                <h2 class="text-xl font-bold text-dark">وضعیت کلی بازار</h2>
+                <div class="flex items-center space-x-2 space-x-reverse">
+                    <span class="text-sm text-gray-500">ارز پایه:</span>
+                    <select id="baseCurrency" class="border border-gray-300 rounded-md px-3 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-primary">
+                        <option value="usd">دلار آمریکا (USD)</option>
+                        <option value="eur">یورو (EUR)</option>
+                        <option value="irt">تومان ایران (IRT)</option>
+                    </select>
+                </div>
+            </div>
+            
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                <div class="bg-light rounded-lg p-4 flex items-center justify-between">
+                    <div>
+                        <p class="text-gray-500 text-sm">ارزش بازار جهانی</p>
+                        <p id="totalMarketCap" class="text-xl font-bold">$1.23T</p>
+                    </div>
+                    <i class="fas fa-globe text-3xl text-primary"></i>
+                </div>
+                
+                <div class="bg-light rounded-lg p-4 flex items-center justify-between">
+                    <div>
+                        <p class="text-gray-500 text-sm">حجم معاملات 24h</p>
+                        <p id="totalVolume" class="text-xl font-bold">$45.67B</p>
+                    </div>
+                    <i class="fas fa-chart-line text-3xl text-secondary"></i>
+                </div>
+                
+                <div class="bg-light rounded-lg p-4 flex items-center justify-between">
+                    <div>
+                        <p class="text-gray-500 text-sm">تغییرات بازار</p>
+                        <p id="marketChange" class="text-xl font-bold price-up">+2.34%</p>
+                    </div>
+                    <i class="fas fa-percentage text-3xl text-green-500"></i>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Top Cryptocurrencies -->
+        <div class="bg-white rounded-xl shadow-md p-6">
+            <div class="flex justify-between items-center mb-6">
+                <h2 class="text-xl font-bold text-dark">ارزهای دیجیتال برتر</h2>
+                <div class="flex items-center space-x-2 space-x-reverse">
+                    <span class="text-sm text-gray-500">مرتب سازی:</span>
+                    <select id="sortBy" class="border border-gray-300 rounded-md px-3 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-primary">
+                        <option value="market_cap">بزرگترین بازار</option>
+                        <option value="volume">بیشترین حجم</option>
+                        <option value="price_change_24h">بیشترین تغییر</option>
+                    </select>
+                </div>
+            </div>
+            
+            <div class="overflow-x-auto">
+                <table class="min-w-full divide-y divide-gray-200">
+                    <thead class="bg-gray-50">
+                        <tr>
+                            <th scope="col" class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">#</th>
+                            <th scope="col" class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">نام ارز</th>
+                            <th scope="col" class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">قیمت</th>
+                            <th scope="col" class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">تغییر 24h</th>
+                            <th scope="col" class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">حجم 24h</th>
+                            <th scope="col" class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">ارزش بازار</th>
+                            <th scope="col" class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">نمودار 7 روزه</th>
+                        </tr>
+                    </thead>
+                    <tbody id="cryptoTableBody" class="bg-white divide-y divide-gray-200">
+                        <!-- Data will be loaded here -->
+                        <tr>
+                            <td colspan="7" class="px-6 py-4 text-center">
+                                <div class="flex justify-center items-center space-x-2 space-x-reverse">
+                                    <div class="loading-spinner"></div>
+                                    <span>در حال دریافت اطلاعات...</span>
+                                </div>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+            
+            <div class="mt-6 flex justify-center">
+                <button id="loadMore" class="bg-primary text-white px-6 py-2 rounded-md hover:bg-secondary transition-colors duration-300">
+                    بارگذاری بیشتر
+                </button>
+            </div>
+        </div>
+    </main>
+
+    <!-- Footer -->
+    <footer class="bg-dark text-white py-8">
+        <div class="container mx-auto px-4">
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-8">
+                <div>
+                    <h3 class="text-lg font-bold mb-4">درباره ما</h3>
+                    <p class="text-gray-300 text-sm">
+                        رصدگر ارز دیجیتال یک پلتفرم حرفه‌ای برای رصد لحظه‌ای قیمت‌ها و تحلیل بازار ارزهای دیجیتال است. ما اطلاعات دقیق و به‌روز را در اختیار شما قرار می‌دهیم.
+                    </p>
+                </div>
+                <div>
+                    <h3 class="text-lg font-bold mb-4">ارزهای پشتیبانی شده</h3>
+                    <ul class="space-y-2 text-sm text-gray-300">
+                        <li>بیت‌کوین (BTC)</li>
+                        <li>اتریوم (ETH)</li>
+                        <li>تتر (USDT)</li>
+                        <li>و ده‌ها ارز دیجیتال دیگر</li>
+                    </ul>
+                </div>
+                <div>
+                    <h3 class="text-lg font-bold mb-4">ارتباط با ما</h3>
+                    <div class="flex space-x-4 space-x-reverse">
+                        <a href="#" class="text-gray-300 hover:text-white">
+                            <i class="fab fa-telegram text-xl"></i>
+                        </a>
+                        <a href="#" class="text-gray-300 hover:text-white">
+                            <i class="fab fa-instagram text-xl"></i>
+                        </a>
+                        <a href="#" class="text-gray-300 hover:text-white">
+                            <i class="fab fa-twitter text-xl"></i>
+                        </a>
+                    </div>
+                </div>
+            </div>
+            <div class="border-t border-gray-700 mt-8 pt-6 text-center text-sm text-gray-400">
+                <p>© 2023 رصدگر ارز دیجیتال. تمامی حقوق محفوظ است.</p>
+            </div>
+        </div>
+    </footer>
+
+    <script>
+        // API Configuration
+        const API_URL = 'https://api.coingecko.com/api/v3';
+        let currentPage = 1;
+        let baseCurrency = 'usd';
+        let sortBy = 'market_cap';
+        
+        // DOM Elements
+        const cryptoTableBody = document.getElementById('cryptoTableBody');
+        const refreshBtn = document.getElementById('refreshBtn');
+        const loadMoreBtn = document.getElementById('loadMore');
+        const baseCurrencySelect = document.getElementById('baseCurrency');
+        const sortBySelect = document.getElementById('sortBy');
+        const totalMarketCap = document.getElementById('totalMarketCap');
+        const totalVolume = document.getElementById('totalVolume');
+        const marketChange = document.getElementById('marketChange');
+        const lastUpdate = document.getElementById('lastUpdate');
+        
+        // Format numbers
+        function formatNumber(num, digits = 2) {
+            const lookup = [
+                { value: 1, symbol: "" },
+                { value: 1e3, symbol: " هزار" },
+                { value: 1e6, symbol: " میلیون" },
+                { value: 1e9, symbol: " میلیارد" },
+                { value: 1e12, symbol: " تریلیون" }
+            ];
+            
+            const rx = /\.0+$|(\.[0-9]*[1-9])0+$/;
+            const item = lookup.slice().reverse().find(item => num >= item.value);
+            
+            return item ? (num / item.value).toFixed(digits).replace(rx, "$1") + item.symbol : "0";
+        }
+        
+        // Format currency
+        function formatCurrency(value, currency = 'usd') {
+            if (currency === 'irt') {
+                return new Intl.NumberFormat('fa-IR', { 
+                    style: 'currency',
+                    currency: 'IRR',
+                    maximumFractionDigits: 0
+                }).format(value * 500000); // Assuming 1 USD = 500,000 IRR
+            } else {
+                return new Intl.NumberFormat('en-US', { 
+                    style: 'currency',
+                    currency: currency.toUpperCase(),
+                    minimumFractionDigits: 2,
+                    maximumFractionDigits: 8
+                }).format(value);
+            }
+        }
+        
+        // Get currency symbol
+        function getCurrencySymbol(currency) {
+            switch(currency) {
+                case 'usd': return '$';
+                case 'eur': return '€';
+                case 'irt': return '﷼';
+                default: return '$';
+            }
+        }
+        
+        // Fetch market data
+        async function fetchMarketData() {
+            try {
+                // Show loading state
+                cryptoTableBody.innerHTML = `
+                    <tr>
+                        <td colspan="7" class="px-6 py-4 text-center">
+                            <div class="flex justify-center items-center space-x-2 space-x-reverse">
+                                <div class="loading-spinner"></div>
+                                <span>در حال دریافت اطلاعات...</span>
+                            </div>
+                        </td>
+                    </tr>
+                `;
+                
+                // Fetch global data
+                const globalResponse = await fetch(`${API_URL}/global`);
+                const globalData = await globalResponse.json();
+                updateGlobalData(globalData.data);
+                
+                // Fetch cryptocurrencies
+                const response = await fetch(`${API_URL}/coins/markets?vs_currency=${baseCurrency}&order=${sortBy}_desc&per_page=20&page=${currentPage}&sparkline=true&price_change_percentage=24h`);
+                const data = await response.json();
+                
+                if (data.length > 0) {
+                    renderCryptoData(data);
+                } else {
+                    cryptoTableBody.innerHTML = `
+                        <tr>
+                            <td colspan="7" class="px-6 py-4 text-center text-gray-500">
+                                اطلاعاتی یافت نشد
+                            </td>
+                        </tr>
+                    `;
+                }
+                
+                // Update last update time
+                const now = new Date();
+                lastUpdate.textContent = `آخرین بروزرسانی: ${now.toLocaleTimeString('fa-IR')}`;
+                
+            } catch (error) {
+                console.error('Error fetching data:', error);
+                cryptoTableBody.innerHTML = `
+                    <tr>
+                        <td colspan="7" class="px-6 py-4 text-center text-red-500">
+                            خطا در دریافت اطلاعات. لطفاً دوباره تلاش کنید.
+                        </td>
+                    </tr>
+                `;
+            }
+        }
+        
+        // Update global market data
+        function updateGlobalData(data) {
+            totalMarketCap.textContent = formatCurrency(data.total_market_cap.usd, 'usd');
+            totalVolume.textContent = formatCurrency(data.total_volume.usd, 'usd');
+            
+            const marketCapChange = data.market_cap_change_percentage_24h_usd;
+            marketChange.textContent = `${marketCapChange > 0 ? '+' : ''}${marketCapChange.toFixed(2)}%`;
+            marketChange.className = `text-xl font-bold ${marketCapChange >= 0 ? 'price-up' : 'price-down'}`;
+        }
+        
+        // Render cryptocurrency data
+        function renderCryptoData(data) {
+            cryptoTableBody.innerHTML = '';
+            
+            data.forEach((coin, index) => {
+                const priceChange = coin.price_change_percentage_24h;
+                const priceChangeClass = priceChange >= 0 ? 'price-up' : 'price-down';
+                const priceChangeIcon = priceChange >= 0 ? 'fa-arrow-up' : 'fa-arrow-down';
+                
+                const row = document.createElement('tr');
+                row.className = 'hover:bg-gray-50 transition-colors duration-200';
+                row.innerHTML = `
+                    <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">${(currentPage - 1) * 20 + index + 1}</td>
+                    <td class="px-6 py-4 whitespace-nowrap">
+                        <div class="flex items-center space-x-2 space-x-reverse">
+                            <img src="${coin.image}" alt="${coin.name}" class="w-8 h-8 rounded-full">
+                            <div>
+                                <div class="font-bold">${coin.name}</div>
+                                <div class="text-gray-500 text-xs">${coin.symbol.toUpperCase()}</div>
+                            </div>
+                        </div>
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm font-bold">
+                        ${formatCurrency(coin.current_price, baseCurrency)}
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm ${priceChangeClass}">
+                        <i class="fas ${priceChangeIcon} ml-1"></i>
+                        ${priceChange ? priceChange.toFixed(2) + '%' : '--'}
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm">
+                        ${formatCurrency(coin.total_volume, baseCurrency)}
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm">
+                        ${formatCurrency(coin.market_cap, baseCurrency)}
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap">
+                        <div class="w-24 h-10">
+                            <canvas id="sparkline-${coin.id}" width="100" height="40"></canvas>
+                        </div>
+                    </td>
+                `;
+                
+                cryptoTableBody.appendChild(row);
+                
+                // Render sparkline chart after a small delay to ensure DOM is ready
+                setTimeout(() => {
+                    renderSparkline(coin);
+                }, 100);
+            });
+        }
+        
+        // Render sparkline chart
+        function renderSparkline(coin) {
+            const canvas = document.getElementById(`sparkline-${coin.id}`);
+            if (!canvas) return;
+            
+            const ctx = canvas.getContext('2d');
+            const sparklineData = coin.sparkline_in_7d.price;
+            const isUp = coin.price_change_percentage_24h >= 0;
+            
+            // Calculate dimensions
+            const width = canvas.width;
+            const height = canvas.height;
+            const padding = 2;
+            
+            // Find min and max values
+            const min = Math.min(...sparklineData);
+            const max = Math.max(...sparklineData);
+            const range = max - min;
+            
+            // Normalize data points
+            const points = sparklineData.map((value, index) => {
+                return {
+                    x: padding + (index / (sparklineData.length - 1)) * (width - 2 * padding),
+                    y: padding + (1 - (value - min) / range) * (height - 2 * padding)
+                };
+            });
+            
+            // Draw sparkline
+            ctx.beginPath();
+            ctx.moveTo(points[0].x, points[0].y);
+            
+            for (let i = 1; i < points.length; i++) {
+                ctx.lineTo(points[i].x, points[i].y);
+            }
+            
+            ctx.strokeStyle = isUp ? '#10b981' : '#ef4444';
+            ctx.lineWidth = 2;
+            ctx.stroke();
+        }
+        
+        // Event Listeners
+        refreshBtn.addEventListener('click', () => {
+            currentPage = 1;
+            fetchMarketData();
+            
+            // Add rotation animation
+            refreshBtn.classList.add('animate-spin');
+            setTimeout(() => {
+                refreshBtn.classList.remove('animate-spin');
+            }, 1000);
+        });
+        
+        loadMoreBtn.addEventListener('click', () => {
+            currentPage++;
+            fetchMarketData();
+        });
+        
+        baseCurrencySelect.addEventListener('change', () => {
+            baseCurrency = baseCurrencySelect.value;
+            currentPage = 1;
+            fetchMarketData();
+        });
+        
+        sortBySelect.addEventListener('change', () => {
+            sortBy = sortBySelect.value;
+            currentPage = 1;
+            fetchMarketData();
+        });
+        
+        // Initial load
+        document.addEventListener('DOMContentLoaded', fetchMarketData);
+    </script>
+</body>
+</html>
